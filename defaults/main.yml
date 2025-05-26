@@ -1,4 +1,10 @@
 ---
+# Determines whether downgrades of the RKE2 version are allowed.
+# If set to `false`, the role will prevent downgrades unless explicitly permitted.
+# Set to `true` to allow downgrades of the RKE2 version.
+# Note: This setting is ignored in Ansible check mode, and the related prevention task will be skipped.
+rke2_allow_downgrade: false
+
 # The node type - server or agent
 rke2_type: "{{ 'server' if inventory_hostname in groups[rke2_servers_group_name] else 'agent' if inventory_hostname in groups[rke2_agents_group_name] }}"
 
@@ -18,8 +24,9 @@ rke2_ha_mode_kubevip: false
 # Or if the keepalived is disabled, use IP address of your LB.
 rke2_api_ip: "{{ hostvars[groups[rke2_servers_group_name].0]['ansible_default_ipv4']['address'] }}"
 
-# optional option for RKE2 Server to listen on a private IP address on port 9345
+# optional option for RKE2 Server to listen on a private IP address & port
 # rke2_api_private_ip:
+rke2_api_private_port: 9345
 
 # optional option for kubevip IP subnet
 # rke2_api_cidr: 24
@@ -57,6 +64,12 @@ rke2_kubevip_service_election_enable: true
 # instead of one node becoming the leader for all services an election is held across all kube-vip instances and the leader from that election becomes the holder of that service. Ultimately,
 # this means that every service can end up on a different node when it is created in theory preventing a bottleneck in the initial deployment.
 # minimum kube-vip version 0.5.0
+
+# (Optional) Change parameters for leader election - see upstream install flags link below
+# rke2_kubevip_leaseduration: 5
+# rke2_kubevip_renewdeadline: 3
+# rke2_kubevip_retryperiod: 1
+# rke2_kubevip_loglevel: 4
 
 # (Optional) A list of kube-vip flags
 # All flags can be found here https://kube-vip.io/docs/installation/flags/
@@ -280,12 +293,28 @@ rke2_ingress_nginx_values: {}
 
 # Cordon, drain the node which is being upgraded. Uncordon the node once the RKE2 upgraded
 rke2_drain_node_during_upgrade: false
+# Additional args that will be passed to the kubectl drain command e.g. --pod-selector
+rke2_drain_additional_args: ""
 
-# Wait for all pods to be ready after rke2-service restart during rolling restart.
+# Wait for all pods to be have a status of running or succeeded after rke2-service restart during rolling restart.
 rke2_wait_for_all_pods_to_be_ready: false
+# Wait for all pods to be ready after rke2-service restart during rolling restart.
+# Named "healthy" to keep backwards compatibility with existing variable names.
+rke2_wait_for_all_pods_to_be_healthy: false
+# The args passed to the kubectl wait command
+rke2_wait_for_all_pods_to_be_healthy_args: --for=condition=Ready -A --all pod --field-selector=metadata.namespace!=kube-system,status.phase!=Succeeded
 
 # Enable debug mode (rke2-service)
 rke2_debug: false
+
+# (Optional) Customize kubelet config using KubeletConfiguration - https://kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/
+# rke2_kubelet_config:
+#   imageGCHighThresholdPercent: 80
+#   imageGCLowThresholdPercent: 70
+# Note that you also need to add the following to kubelet args:
+# rke2_kubelet_arg:
+#   - "--config=/etc/rancher/rke2/kubelet-config.yaml"
+rke2_kubelet_config: {}
 
 # (Optional) Customize default kubelet arguments
 # rke2_kubelet_arg:
